@@ -1,7 +1,7 @@
 from tradeiros.ExchangeBase import ExchangeBase
 
 class Bybit(ExchangeBase):
-    def __init__(self):
+    def __init__(self, sufixo=None, **kwargs):
         pass
     def get_patrimonio(self):
         pass

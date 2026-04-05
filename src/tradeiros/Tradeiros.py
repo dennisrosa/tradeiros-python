@@ -5,11 +5,16 @@ import os
 from dotenv import load_dotenv, find_dotenv
 
 class Tradeiros:
-    def __init__(self, exchange, **kwargs):
+    def __init__(self, exchange, descricao=None, sufixo=None, **kwargs):
         load_dotenv(find_dotenv()) 
         
         self.exchange_name = exchange
+        self.descricao = descricao
+        self.sufixo = sufixo
         
+        # Repassa o sufixo explicitamente para a exchange para formatação de variáveis de ambiente
+        kwargs['sufixo'] = sufixo
+
         if exchange == "okx":
             self.exchange = Okx(**kwargs)
         elif exchange == "bybit":

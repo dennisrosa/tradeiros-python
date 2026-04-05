@@ -4,11 +4,13 @@ import ccxt
 from tradeiros.ExchangeBase import ExchangeBase
 
 class Bitget(ExchangeBase):
-    def __init__(self, api_key=None, api_secret=None, passphrase=None, flag='1'):
+    def __init__(self, api_key=None, api_secret=None, passphrase=None, flag='1', sufixo=None):
 
-        key = api_key or os.getenv('BITGET_API_KEY')
-        secret = api_secret or os.getenv('BITGET_API_SECRET')
-        pass_phrase = passphrase or os.getenv('BITGET_PASSPHRASE')
+        suffix_str = sufixo if sufixo else ''
+
+        key = api_key or os.getenv(f'BITGET_API_KEY{suffix_str}')
+        secret = api_secret or os.getenv(f'BITGET_API_SECRET{suffix_str}')
+        pass_phrase = passphrase or os.getenv(f'BITGET_PASSPHRASE{suffix_str}')
 
         if not key or not secret or not pass_phrase:
             raise ValueError("As credenciais da Bitget não foram fornecidas.")

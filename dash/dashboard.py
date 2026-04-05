@@ -26,7 +26,7 @@ COLORS = {
     'accent': '#f4b41a',           # Dourado HP (Novo)
     'accent_dark': '#bd8d12',      # Dourado Escuro
 }
-t = Tradeiros("okx")
+t = Tradeiros("okx", descricao="Carteira Clássica", sufixo="")
 
 # Definição fixa das colunas para evitar NameError
 GRID_COLUMNS = ['tipo', 'operacao', 'min', 'max', 'qtd', 'valor', 'reduce', '%']
@@ -130,7 +130,7 @@ app.layout = html.Div([
                 html.Div([
                     html.Img(src="/assets/escudo.png", style={'height': '30px', 'marginRight': '10px'}),
                     html.H3([
-                        "Carteira Clássica ",
+                        f"{t.descricao} " if t.descricao else "Carteira Clássica ",
                         html.Span(id='patrimonio-value', children="($ 0.00)", style={'fontSize': '16px', 'opacity': '0.8', 'marginLeft': '10px'})
                     ], style={'textAlign': 'center', 'color': COLORS['accent'], 'margin': '0', 'fontWeight': 'bold', 'display': 'inline-block', 'verticalAlign': 'middle'}),
                 ], style={'display': 'flex', 'alignItems': 'center', 'justifyContent': 'center', 'padding': '10px 0'}),

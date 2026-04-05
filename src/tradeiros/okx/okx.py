@@ -6,12 +6,15 @@ import os
 import json
 
 class Okx(ExchangeBase):
-    def __init__(self, api_key=None, api_secret=None, passphrase=None, flag='0'):
+    def __init__(self, api_key=None, api_secret=None, passphrase=None, flag='0', sufixo=None):
+
+        # Ajusta nome das chaves com base no sufixo caso fornecido
+        suffix_str = sufixo if sufixo else ''
 
         # Tenta pegar dos parâmetros; se não passar, tenta pegar das variáveis de ambiente globais
-        key = api_key or os.getenv('OKX_API_KEY')
-        secret = api_secret or os.getenv('OKX_API_SECRET')
-        pass_phrase = passphrase or os.getenv('OKX_PASSPHRASE')
+        key = api_key or os.getenv(f'OKX_API_KEY{suffix_str}')
+        secret = api_secret or os.getenv(f'OKX_API_SECRET{suffix_str}')
+        pass_phrase = passphrase or os.getenv(f'OKX_PASSPHRASE{suffix_str}')
         flag_val = os.getenv('OKX_FLAG', flag)
 
         if not key or not secret or not pass_phrase:
