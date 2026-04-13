@@ -167,9 +167,9 @@ app.layout = html.Div([
                                 },                                
                             ]
                         },
-                        dashGridOptions={"pagination": False},
+                        dashGridOptions={"pagination": False, "domLayout": "autoHeight"},
                         className="ag-theme-alpine-dark", 
-                        style={"height": "500px", "width": "100%"}
+                        style={"height": "auto", "maxHeight": "500px", "width": "100%", "overflowY": "auto"}
                     ),
                     
                     # ÁREA DOS GRÁFICOS (MATPLOTLIB)
