@@ -53,6 +53,9 @@ Copie e cole o comando abaixo em uma célula de código e execute para instalar 
 
 ![Instalando a biblioteca](img/colab/05_instalar_libs.png)
 
+> [!TIP]
+> A instalação só precisa ser feita na **primeira execução do dia** ou caso o Google Colab reinicie seu ambiente devido a um longo tempo de inatividade. Em execuções subsequentes no mesmo dia, você pode pular esta célula.
+
 ---
 
 ### 6. Limpar o Output (Opcional)
@@ -89,6 +92,9 @@ t.graficos()
 ```
 
 ![Habilitando acesso e escrevendo código](img/colab/08_habilitar_secret_notebook.png)
+
+> [!CAUTION]
+> **Erro de Importação:** Se você receber a mensagem `ModuleNotFoundError: No module named 'tradeiros'`, certifique-se de que executou a célula do **Passo 5** corretamente.
 
 > [!TIP]
 > Se você esquecer de habilitar o acesso no passo 3, o Colab exibirá um erro de **Timeout** conforme mostrado abaixo:
