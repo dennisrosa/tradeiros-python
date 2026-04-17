@@ -87,7 +87,7 @@ app.layout = html.Div([
     dcc.Store(id='privacy-store', data=True),
     
     # COMPONENTE DE INTERVALO (30 Segundos)
-    dcc.Interval(id='update-interval', interval=30*1000, n_intervals=0),
+    dcc.Interval(id='update-interval', interval=10*1000, n_intervals=0),
 
     # BOTÃO DE PRIVACIDADE NO TOPO DIREITO
     html.Div([
@@ -283,6 +283,9 @@ def fetch_api_data(n):
         status_style = {'fontSize': '12px', 'color': COLORS['text'], 'opacity': '0.7', 'fontStyle': 'italic', 'marginTop': '-5px'}
         return {'records': records, 'patrimonio': patrimonio, 'chart_uri': chart_uri}, status_msg, status_style
     except Exception as e:
+        import traceback
+        print(f"Erro no fetch: {e}")
+        traceback.print_exc()
         status_msg = "⚠️ erro na execução da api (re tentando...)"
         status_style = {'fontSize': '12px', 'color': '#ef4444', 'fontWeight': 'bold', 'marginTop': '-5px'}
         return no_update, status_msg, status_style

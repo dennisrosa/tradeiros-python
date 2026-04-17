@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tradeiros"
-version = "0.1.3a2"
+version = "0.1.3a4"
 description = "Biblioteca para visualização de ordens da comunidade Tradeiros Hedge Pro."
 readme = "README.md"
 authors = [
@@ -26,7 +26,8 @@ dependencies = [
     "matplotlib",
     "numpy",
     "dash",
-    "dash-ag-grid"
+    "dash-ag-grid",
+    "httpx < 1.0.0"
 ]
 
 [project.urls]

@@ -39,7 +39,8 @@ class Tradeiros:
         except (IndexError, KeyError):
             protegido = 0.0
 
-        valores = [protegido, self.patrimonio() - protegido]
+        exp_restante = max(0, self.patrimonio() - protegido)
+        valores = [protegido, exp_restante]
         rotulos = ['Protegido', 'Exposto']
 
         df_exposicao = pd.DataFrame({
@@ -80,43 +81,47 @@ class Tradeiros:
 
     def graficos(self):
         df_exposicao, df_margem = self.gerar_dataset_grafico()
-        import matplotlib.pyplot as plt
+        from matplotlib.figure import Figure
         import numpy as np
 
-        # Reduzi o tamanho da figura de (14, 6) para (10, 4)
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))
+        # Cria a figura diretamente para evitar o gerenciador global do pyplot (evita vazamento de memória)
+        fig = Figure(figsize=(10, 4))
+        (ax1, ax2) = fig.subplots(1, 2)
 
         # ===== GRÁFICO 1: Exposição =====
-        ax1.pie(df_exposicao['Valor'], 
-                labels=df_exposicao['Categoria'],
-                colors=df_exposicao['Cor'],
-                autopct='%1.1f%%',
-                startangle=90,
-                explode=df_exposicao['Explode'],
-                shadow=True,
-                textprops={'fontsize': 10}) # Fonte reduzida
+        if df_exposicao['Valor'].sum() > 0:
+            ax1.pie(df_exposicao['Valor'], 
+                    labels=df_exposicao['Categoria'],
+                    colors=df_exposicao['Cor'],
+                    autopct='%1.1f%%',
+                    startangle=90,
+                    explode=df_exposicao['Explode'],
+                    shadow=True,
+                    textprops={'fontsize': 10}) # Fonte reduzida
+        else:
+            ax1.text(0.5, 0.5, 'Sem Dados', ha='center', va='center', color='gray')
 
         ax1.set_title('Exposição', fontsize=12, fontweight='bold')
         ax1.axis('equal')
 
         # ===== GRÁFICO 2: Margem =====
-        ax2.pie(df_margem['Valor'],
-                labels=df_margem['Categoria'],
-                colors=df_margem['Cor'],
-                autopct='%1.1f%%',
-                startangle=90,
-                explode=df_margem['Explode'],
-                shadow=True,
-                textprops={'fontsize': 10}) # Fonte reduzida
+        if df_margem['Valor'].sum() > 0:
+            ax2.pie(df_margem['Valor'],
+                    labels=df_margem['Categoria'],
+                    colors=df_margem['Cor'],
+                    autopct='%1.1f%%',
+                    startangle=90,
+                    explode=df_margem['Explode'],
+                    shadow=True,
+                    textprops={'fontsize': 10}) # Fonte reduzida
+        else:
+            ax2.text(0.5, 0.5, 'Sem Dados', ha='center', va='center', color='gray')
 
 
         ax2.set_title('Margem', fontsize=12, fontweight='bold')
         ax2.axis('equal')
 
-        plt.tight_layout()
-        
-        # Fecha a figura no estado global para evitar renderização dupla no Jupyter
-        plt.close(fig)
+        fig.tight_layout()
         
         return fig
 
@@ -129,20 +134,4 @@ class Tradeiros:
 
     def patrimonio(self):
         return self._patrimonio
-        
-if __name__ == "__main__":
-    tradeiros = Tradeiros("okx")
-    df = tradeiros.atualizar()
-    print(df)
-    print("Patrimônio: ", tradeiros.patrimonio())
-    print("1% do patrimônio: ", tradeiros.patrimonio()*0.01)
-
-    print("\n")
-    
-    #tradeiros = Tradeiros("bitget")
-    #df, patrimonio = tradeiros.atualizar()
-    #print(df)
-    #print("Patrimônio: ", patrimonio)
-    #print("1% do patrimônio: ", patrimonio*0.01)
-
         

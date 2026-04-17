@@ -52,34 +52,42 @@ class Okx(ExchangeBase):
 
 
     def get_patrimonio(self):
-        result = self.account.get_account_balance()
-        eq = 0   
-        account_data = result.get('data', [])
-        if account_data:
-            for account_detail in account_data:
-                encontrou_btc = False
-                for balance_detail in account_detail.get('details', []):
-                    ccy = balance_detail.get('ccy')
-                    
-                    # Filtra apenas para BTC
-                    if ccy == 'BTC':
-                        encontrou_btc = True
-                        cash_bal = balance_detail.get('cashBal')
-                        avail_bal = balance_detail.get('availBal')
-                        eq = balance_detail.get('eq')
-                        break  # Sai do loop após encontrar BTC
-                
-                if not encontrou_btc:
-                    print("Nenhum saldo de BTC encontrado nesta conta.")
-        else:
-            print("Nenhum dado de conta encontrado.")
-
+        try:
+            result = self.account.get_account_balance()
+            if 'data' not in result:
+                print(f"Erro OKX (Balance): {result}")
+            eq = 0   
+            account_data = result.get('data', [])
+            if account_data:
+                for account_detail in account_data:
+                    encontrou_btc = False
+                    for balance_detail in account_detail.get('details', []):
+                        ccy = balance_detail.get('ccy')
+                        
+                        # Filtra apenas para BTC
+                        if ccy == 'BTC':
+                            encontrou_btc = True
+                            cash_bal = balance_detail.get('cashBal')
+                            avail_bal = balance_detail.get('availBal')
+                            eq = balance_detail.get('eq')
+                            break  # Sai do loop após encontrar BTC
+        except Exception as e:
+            print(f"Falha na rede OKX (Balance): {e}")
+            eq = 0 
+        
         return float(eq) * self.get_btc_preco()
 
     def get_btc_preco(self):
         #Recuperar o preco atual do BTC
-        ticker_result = self.market.get_ticker(instId='BTC-USD-SWAP')
-        return float(ticker_result["data"][0]['last'])
+        try:
+            ticker_result = self.market.get_ticker(instId='BTC-USD-SWAP')
+            if not ticker_result.get('data'):
+                print(f"Erro OKX (Ticker): {ticker_result}")
+                return 1.0 # Fallback para evitar divisão por zero se usado
+            return float(ticker_result["data"][0].get('last', 0))
+        except Exception as e:
+            print(f"Falha na rede OKX (Ticker): {e}")
+            return 1.0
 
     def get_ordens(self):
         df_limit = self.load_limit_orders_okx()
@@ -89,14 +97,27 @@ class Okx(ExchangeBase):
 
     def get_short_protecao(self):
         # Recuperar o SHORT Aberto
-        posicao_btc = self.account.get_positions(instId='BTC-USD-SWAP')
-        return posicao_btc['data'][0]['pos']
+        try:
+            posicao_btc = self.account.get_positions(instId='BTC-USD-SWAP')
+            if not posicao_btc.get('data'):
+                print(f"Erro OKX (Positions): {posicao_btc}")
+                return 0
+            return posicao_btc['data'][0].get('pos', 0)
+        except Exception as e:
+            print(f"Falha na rede OKX (Positions): {e}")
+            return 0
 
     def load_limit_orders_okx(self):
-        orders = self.trade.get_order_list()
-        str_data = json.dumps(orders)
-        js = json.loads(str_data)
-        df = pd.DataFrame(js['data'])
+        try:
+            orders = self.trade.get_order_list()
+            if 'data' not in orders:
+                print(f"Erro OKX (Limit Orders): {orders}")
+                return pd.DataFrame(columns=['par', 'tipo', 'preco', 'reduce', 'operacao', 'qtd', 'data_criacao'])
+            df = pd.DataFrame(orders['data'])
+        except Exception as e:
+            print(f"Falha na rede OKX (Limit Orders): {e}")
+            return pd.DataFrame(columns=['par', 'tipo', 'preco', 'reduce', 'operacao', 'qtd', 'data_criacao'])
+
         if df.empty:
             return pd.DataFrame(columns=['par', 'tipo', 'preco', 'reduce', 'operacao', 'qtd', 'data_criacao'])
         
@@ -109,10 +130,16 @@ class Okx(ExchangeBase):
         return df.sort_values('preco', ascending=False)
 
     def load_market_orders_okx(self):
-        result = self.trade.order_algos_list(ordType ='limit')
-        str_data = json.dumps(result)
-        js = json.loads(str_data)
-        df = pd.DataFrame(js['data'])
+        try:
+            result = self.trade.order_algos_list(ordType ='limit')
+            if 'data' not in result:
+                print(f"Erro OKX (Market/Algo Orders): {result}")
+                return pd.DataFrame(columns=['par', 'tipo', 'preco', 'reduce', 'operacao', 'qtd', 'data_criacao'])
+            df = pd.DataFrame(result['data'])
+        except Exception as e:
+            print(f"Falha na rede OKX (Market/Algo Orders): {e}")
+            return pd.DataFrame(columns=['par', 'tipo', 'preco', 'reduce', 'operacao', 'qtd', 'data_criacao'])
+
         if df.empty:
             return pd.DataFrame(columns=['par', 'tipo', 'preco', 'reduce', 'operacao', 'qtd', 'data_criacao'])
             
@@ -161,5 +188,8 @@ class Okx(ExchangeBase):
         agrupado['tipo'] = agrupado['tipo'].str.replace('conditional', 'market')
 
         agrupado['qtd_sum'] = agrupado['qtd_sum'] * 100
-        agrupado['%'] = agrupado['qtd_sum'] * 100 / allocation
+        if allocation > 0:
+            agrupado['%'] = agrupado['qtd_sum'] * 100 / allocation
+        else:
+            agrupado['%'] = 0.0
         return agrupado
