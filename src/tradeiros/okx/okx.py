@@ -189,7 +189,7 @@ class Okx(ExchangeBase):
 
         agrupado['qtd_sum'] = agrupado['qtd_sum'] * 100
         if allocation > 0:
-            agrupado['%'] = agrupado['qtd_sum'] * 100 / allocation
+            agrupado['%'] = (agrupado['qtd_sum'] * 100 / allocation).round(2)
         else:
             agrupado['%'] = 0.0
         return agrupado

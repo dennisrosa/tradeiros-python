@@ -154,7 +154,7 @@ class Bitget(ExchangeBase):
 
         # Cálculo da porcentagem de exposição sobre o patrimônio total
         if allocation > 0:
-            agrupado['%'] = (agrupado['qtd_sum'].abs() * 100) / allocation
+            agrupado['%'] = ((agrupado['qtd_sum'].abs() * 100) / allocation).round(2)
         else:
             agrupado['%'] = 0.0
             
