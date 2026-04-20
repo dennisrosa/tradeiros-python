@@ -68,8 +68,12 @@ class Bitget(ExchangeBase):
             
             data = []
             for o in orders:
-                preco_ordem = float(o.get('price') or o.get('stopPrice') or 0)
-                amount = float(o.get('amount', 0))
+                # Conversão segura para booleano e float
+                p_raw = o.get('price') or o.get('stopPrice')
+                preco_ordem = float(p_raw) if p_raw and str(p_raw).strip() != '' else 0.0
+                
+                a_raw = o.get('amount')
+                amount = float(a_raw) if a_raw and str(a_raw).strip() != '' else 0.0
                 
                 # Valor nocional em USD (Notional) = amount * preco
                 usd_value = amount * (preco_ordem or self.get_btc_preco())

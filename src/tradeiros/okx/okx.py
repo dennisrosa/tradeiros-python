@@ -124,8 +124,8 @@ class Okx(ExchangeBase):
         
         df = df[['instId', 'ordType', 'px', 'reduceOnly', 'side', 'sz', 'cTime']]
         df = df.rename(columns={'instId':'par', 'ordType':'tipo', 'px':'preco', 'reduceOnly':'reduce', 'side': 'operacao', 'sz':'qtd'})
-        df['preco'] = df['preco'].astype("float")
-        df['qtd'] = df['qtd'].astype("float")
+        df['preco'] = pd.to_numeric(df['preco'], errors='coerce').fillna(0.0)
+        df['qtd'] = pd.to_numeric(df['qtd'], errors='coerce').fillna(0.0)
         # Converte timestamp para formato legível
         df['data_criacao'] = pd.to_datetime(df['cTime'].astype(float), unit='ms').dt.strftime('%d/%m %H:%M')
         return df.sort_values('preco', ascending=False)
@@ -146,8 +146,8 @@ class Okx(ExchangeBase):
             
         df = df[['instId', 'ordType', 'slTriggerPx','reduceOnly', 'side', 'sz', 'cTime']]
         df = df.rename(columns={'instId':'par', 'ordType':'tipo', 'slTriggerPx':'preco', 'reduceOnly':'reduce', 'side': 'operacao', 'sz':'qtd'})
-        df['preco'] = df['preco'].astype("float")
-        df['qtd'] = df['qtd'].astype("float")
+        df['preco'] = pd.to_numeric(df['preco'], errors='coerce').fillna(0.0)
+        df['qtd'] = pd.to_numeric(df['qtd'], errors='coerce').fillna(0.0)
         # Converte timestamp para formato legível
         df['data_criacao'] = pd.to_datetime(df['cTime'].astype(float), unit='ms').dt.strftime('%d/%m %H:%M')
         return df.sort_values('preco', ascending=False)
