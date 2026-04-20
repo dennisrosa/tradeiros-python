@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 import ccxt
+from datetime import datetime
 from tradeiros.ExchangeBase import ExchangeBase
 
 class Bitget(ExchangeBase):
@@ -36,7 +37,7 @@ class Bitget(ExchangeBase):
             
             return float(total_btc) * self.get_btc_preco()
         except Exception as e:
-            print(f"Erro ao buscar patrimônio Bitget (Coin-M): {e}")
+            print(f"[{datetime.now().strftime('%d/%m %H:%M:%S')}] Erro ao buscar patrimônio Bitget (Coin-M): {e}")
             return 0.0
 
     def get_btc_preco(self):
@@ -90,7 +91,7 @@ class Bitget(ExchangeBase):
             df = pd.DataFrame(data).sort_values('preco', ascending=True)
             return df
         except Exception as e:
-            print(f"Erro ao buscar ordens Bitget: {e}")
+            print(f"[{datetime.now().strftime('%d/%m %H:%M:%S')}] Erro ao buscar ordens Bitget: {e}")
             return pd.DataFrame(columns=['par', 'tipo', 'operacao', 'preco', 'reduce', 'qtd'])
 
     def get_short_protecao(self):
@@ -115,13 +116,12 @@ class Bitget(ExchangeBase):
                         return abs(val_usd)
             return 0.0
         except Exception as e:
-            print(f"Erro ao buscar posição short Bitget: {e}")
+            print(f"[{datetime.now().strftime('%d/%m %H:%M:%S')}] Erro ao buscar posição short Bitget: {e}")
             return 0.0
 
     def consolidate(self, df, allocation, btc_price, short_thp):
         """Consolida as ordens e posições para exibição no relatório"""
-        import datetime
-        now_str = datetime.datetime.now().strftime('%d/%m %H:%M')
+        now_str = datetime.now().strftime('%d/%m %H:%M')
         
         if df.empty:
             agrupado = pd.DataFrame(columns=['par', 'tipo', 'operacao', 'preco_min', 'preco_max', 'qtd_ordens', 'qtd_sum', 'reduce', 'data_criacao'])

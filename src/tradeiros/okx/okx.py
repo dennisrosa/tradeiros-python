@@ -4,6 +4,7 @@ import pandas as pd
 import sys
 import os
 import json
+from datetime import datetime
 
 class Okx(ExchangeBase):
     def __init__(self, api_key=None, api_secret=None, passphrase=None, flag='0', sufixo=None):
@@ -72,7 +73,7 @@ class Okx(ExchangeBase):
                             eq = balance_detail.get('eq')
                             break  # Sai do loop após encontrar BTC
         except Exception as e:
-            print(f"Falha na rede OKX (Balance): {e}")
+            print(f"[{datetime.now().strftime('%d/%m %H:%M:%S')}] Falha na rede OKX (Balance): {e}")
             eq = 0 
         
         return float(eq) * self.get_btc_preco()
@@ -86,7 +87,7 @@ class Okx(ExchangeBase):
                 return 1.0 # Fallback para evitar divisão por zero se usado
             return float(ticker_result["data"][0].get('last', 0))
         except Exception as e:
-            print(f"Falha na rede OKX (Ticker): {e}")
+            print(f"[{datetime.now().strftime('%d/%m %H:%M:%S')}] Falha na rede OKX (Ticker): {e}")
             return 1.0
 
     def get_ordens(self):
@@ -104,7 +105,7 @@ class Okx(ExchangeBase):
                 return 0
             return posicao_btc['data'][0].get('pos', 0)
         except Exception as e:
-            print(f"Falha na rede OKX (Positions): {e}")
+            print(f"[{datetime.now().strftime('%d/%m %H:%M:%S')}] Falha na rede OKX (Positions): {e}")
             return 0
 
     def load_limit_orders_okx(self):
@@ -115,7 +116,7 @@ class Okx(ExchangeBase):
                 return pd.DataFrame(columns=['par', 'tipo', 'preco', 'reduce', 'operacao', 'qtd', 'data_criacao'])
             df = pd.DataFrame(orders['data'])
         except Exception as e:
-            print(f"Falha na rede OKX (Limit Orders): {e}")
+            print(f"[{datetime.now().strftime('%d/%m %H:%M:%S')}] Falha na rede OKX (Limit Orders): {e}")
             return pd.DataFrame(columns=['par', 'tipo', 'preco', 'reduce', 'operacao', 'qtd', 'data_criacao'])
 
         if df.empty:
@@ -137,7 +138,7 @@ class Okx(ExchangeBase):
                 return pd.DataFrame(columns=['par', 'tipo', 'preco', 'reduce', 'operacao', 'qtd', 'data_criacao'])
             df = pd.DataFrame(result['data'])
         except Exception as e:
-            print(f"Falha na rede OKX (Market/Algo Orders): {e}")
+            print(f"[{datetime.now().strftime('%d/%m %H:%M:%S')}] Falha na rede OKX (Market/Algo Orders): {e}")
             return pd.DataFrame(columns=['par', 'tipo', 'preco', 'reduce', 'operacao', 'qtd', 'data_criacao'])
 
         if df.empty:
@@ -152,8 +153,7 @@ class Okx(ExchangeBase):
         return df.sort_values('preco', ascending=False)
 
     def consolidate(self, df, allocation, btc_price, short_thp):
-        import datetime
-        now_str = datetime.datetime.now().strftime('%d/%m %H:%M')
+        now_str = datetime.now().strftime('%d/%m %H:%M')
         
         if df.empty:
             agrupado = pd.DataFrame(columns=['par', 'tipo', 'operacao', 'preco_min', 'preco_max', 'qtd_ordens', 'qtd_sum', 'reduce', 'data_criacao'])

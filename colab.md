@@ -54,7 +54,7 @@ Copie e cole o comando abaixo em uma célula de código e execute para instalar 
 ![Instalando a biblioteca](img/colab/05_instalar_libs.png)
 
 > [!TIP]
-> A instalação só precisa ser feita na **primeira execução do dia** ou caso o Google Colab reinicie seu ambiente devido a um longo tempo de inatividade. Em execuções subsequentes no mesmo dia, você pode pular esta célula.
+> A instalação precisa ser feita no primeiro acesso e sempre que o Google Colab desconecte seu ambiente devido a um longo tempo de inatividade. Em execuções subsequentes, não é necessário executar esta célula.
 
 ---
 
