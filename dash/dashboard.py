@@ -29,7 +29,7 @@ COLORS = {
 t = Tradeiros("okx", descricao="Carteira Clássica", sufixo="")
 
 # Definição fixa das colunas para evitar NameError
-GRID_COLUMNS = ['tipo', 'operacao', 'min', 'max', 'qtd', 'valor', 'reduce', '%']
+GRID_COLUMNS = ['operacao', 'range', 'valor', 'data', '%']
 
 def fig_to_uri(fig):
     """Converte uma figura do Matplotlib para uma URI de imagem base64"""
@@ -62,10 +62,48 @@ def get_processed_data():
         
     chart_uri = fig_to_uri(fig)
     
+    # Funções de formatação conforme solicitado
+    def formatar_texto(row):
+        operacao = str(row['operacao']).upper()
+        tipo = str(row['tipo']).upper()
+        qtd = row['qtd_ordens']
+        # Trata string 'true'/'false' ou booleano real
+        reduce = str(row['reduce']).lower() == 'true' if isinstance(row['reduce'], str) else bool(row['reduce'])
+        
+        if qtd > 1:
+            ret = f"{operacao} SCALE-{int(qtd)} {tipo}"
+        elif qtd == 0:
+            ret = "SHORT"
+        elif qtd == 1:
+            ret = f"{operacao} STOP {tipo}"
+        else:
+            return None
+
+        if reduce and qtd > 0:
+            return "R " + ret
+        return ret
+
+    def formatar_range(row):
+        p_min = row['preco_min']
+        p_max = row['preco_max']
+        if p_min == p_max:
+            return f"{p_min:.1f}"
+        return f"{p_min:.1f} a {p_max:.1f}"
+
+    # Aplicar formatações
     df['%'] = df['%'].round(2) 
-    df['qtd_sum'] = df['qtd_sum'].astype(int) 
-    df = df[['tipo', 'operacao', 'preco_min', 'preco_max', 'qtd_ordens', 'qtd_sum', 'reduce', '%']]
-    df = df.rename(columns={'preco_min':'min', 'preco_max':'max', 'qtd_ordens':'qtd', 'qtd_sum':'valor'})
+    
+    # Preservar colunas originais para estilização antes de sobrescrever
+    df['raw_operacao'] = df['operacao']
+    df['raw_tipo'] = df['tipo']
+    
+    df['range'] = df.apply(formatar_range, axis=1)
+    df['operacao'] = df.apply(formatar_texto, axis=1)
+    
+    df = df.rename(columns={'qtd_sum': 'valor', 'data_criacao': 'data'})
+    
+    # Selecionar apenas as colunas necessárias (incluindo as raw para estilo oculto)
+    df = df[['operacao', 'range', 'valor', 'data', '%', 'raw_operacao', 'raw_tipo']]
     return df.to_dict("records"), patrimonio, chart_uri
 
 # Cores movidas para o topo
@@ -137,13 +175,7 @@ app.layout = html.Div([
                     dag.AgGrid(
                         id='grid-classica', 
                         rowData=[], 
-                        columnDefs=[
-                            {
-                                "field": i, 
-                                # Alinha à direita colunas numéricas/decimais
-                                #"cellStyle": {"textAlign": "right"} if i in ["valor", "%"] else {}
-                            } for i in GRID_COLUMNS
-                        ],
+                        columnDefs=[], # Será preenchido pelo clientside callback
                         defaultColDef={
                             "resizable": False, 
                             "sortable": False, 
@@ -154,15 +186,15 @@ app.layout = html.Div([
                         getRowStyle={
                             "styleConditions": [
                                 {
-                                    "condition": "params.data.tipo !== 'protected' && params.data.operacao === 'buy'",
+                                    "condition": "params.data.raw_tipo !== 'protected' && params.data.raw_operacao === 'buy'",
                                     "style": {"color": "#22c55e"}
                                 },
                                 {
-                                    "condition": "params.data.tipo !== 'protected' && params.data.operacao === 'sell'",
+                                    "condition": "params.data.raw_tipo !== 'protected' && params.data.raw_operacao === 'sell'",
                                     "style": {"color": "#ef4444"}
                                 },
                                 {
-                                    "condition": "params.data.tipo === 'protected'",
+                                    "condition": "params.data.raw_tipo === 'protected'",
                                     "style": {"color":  COLORS['accent'], "fontWeight": "bold"}
                                 },                                
                             ]
@@ -207,7 +239,15 @@ app.layout = html.Div([
             ], style={'backgroundColor': COLORS['container'], 'borderRadius': '15px', 'boxShadow': '0px 10px 30px rgba(0,0,0,0.5)'})
         ], style={'flex': '1', 'minWidth': '400px', 'padding': '5px'}) 
         
-    ], style={'display': 'flex', 'flexDirection': 'row', 'flexWrap': 'nowrap', 'maxWidth': '100%', 'margin': '0 10px'})
+    ], style={
+        'display': 'flex', 
+        'flexDirection': 'row', 
+        'flexWrap': 'wrap', # Permite quebrar linha no mobile (um abaixo do outro)
+        'justifyContent': 'center', 
+        'maxWidth': '1300px', # Limita a largura para reduzir espaços vazios no grid
+        'margin': '20px auto', # Centraliza e adiciona respiro no topo
+        'padding': '0 10px'
+    })
 ], style={
     'backgroundColor': COLORS['background'], 
     'minHeight': '100vh', 
@@ -254,6 +294,10 @@ app.index_string = f'''
             .ag-header-cell {{
                 background-color: {COLORS['background']} !important;
                 border-bottom: 2px solid {COLORS['accent']} !important;
+            }}
+            /* Centralizar texto dos cabeçalhos */
+            .center-header .ag-header-cell-label {{
+                justify-content: center !important;
             }}
         </style>
     </head>
@@ -327,6 +371,36 @@ def render_display(raw_data, is_hidden):
             
     return records, patrimonio_str, raw_data.get('chart_uri', '')
 
+# 4. CALLBACK RESPONSIVO (CLIENTSIDE) - Ajusta colunas sem "buracos"
+app.clientside_callback(
+    """
+    function(n, accent_color) {
+        const width = window.innerWidth;
+        const isMobile = width < 700;
+        const columns = ['operacao', 'range', 'valor', 'data', '%'];
+        
+        return columns.map(i => {
+            const isData = i === 'data';
+            return {
+                "field": i,
+                "headerName": isData ? "DATA" : i.toUpperCase(),
+                "hide": isData && isMobile,
+                "headerClass": (i === 'operacao' || i === 'range' || i === 'data') ? "center-header" : "",
+                "cellStyle": {
+                    "textAlign": (i === 'operacao' || i === 'range' || i === 'data') ? "center" : 
+                                 (i === 'valor' || i === '%' ) ? "right" : "left"
+                },
+                "flex": i === 'operacao' ? 3 : (i === 'range' ? 2 : 1),
+                "minWidth": i === 'operacao' ? 200 : (i === 'range' ? 150 : (i === 'data' ? 110 : 70))
+            };
+        });
+    }
+    """,
+    Output('grid-classica', 'columnDefs'),
+    Input('update-interval', 'n_intervals'), # Atualiza a cada intervalo ou no load
+    State('privacy-store', 'data') # Apenas para trigger inicial se necessário
+)
+
 if __name__ == '__main__':
     # Rodando externamente para que você possa abrir o link clássico no navegador
-    app.run(jupyter_mode="external", host='127.0.0.1', port=8050, debug=True)
+    app.run(jupyter_mode="external", host='0.0.0.0', port=8050, debug=True)

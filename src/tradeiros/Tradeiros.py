@@ -135,3 +135,5 @@ class Tradeiros:
     def patrimonio(self):
         return self._patrimonio
         
+    def dados(self):
+        return self._df
