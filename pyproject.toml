@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tradeiros"
-version = "0.1.3a7"
+version = "0.1.3a8"
 description = "Biblioteca para visualização de ordens da comunidade Tradeiros Hedge Pro."
 readme = "README.md"
 authors = [
