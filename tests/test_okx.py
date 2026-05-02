@@ -66,13 +66,44 @@ def test_okx_get_patrimonio(okx_instance):
             ]
         }]
     }
-    
+
     # Mock price
     with patch.object(Okx, 'get_btc_preco', return_value=50000.0):
         patrimonio = okx_instance.get_patrimonio()
-        
+
+    okx_instance.account.get_account_balance.assert_called_with(ccy='BTC')
     # eq (0.5) * price (50000.0) = 25000.0
     assert patrimonio == 25000.0
+
+def test_okx_get_margem_disponivel(okx_instance):
+    okx_instance.account.get_account_balance.return_value = {
+        "data": [{
+            "details": [
+                {"ccy": "BTC", "availBal": "0.25", "eq": "0.5"}
+            ]
+        }]
+    }
+
+    margem = okx_instance.get_margem_disponivel()
+
+    okx_instance.account.get_account_balance.assert_called_with(ccy='BTC')
+    assert margem == 0.25
+
+def test_okx_get_margem_disponivel_empty(okx_instance):
+    okx_instance.account.get_account_balance.return_value = {
+        "data": [{
+            "details": []
+        }]
+    }
+
+    margem = okx_instance.get_margem_disponivel()
+    assert margem == 0.0
+
+def test_okx_get_margem_disponivel_error(okx_instance):
+    okx_instance.account.get_account_balance.return_value = {"code": "1", "msg": "error"}
+
+    margem = okx_instance.get_margem_disponivel()
+    assert margem == 0.0
 
 def test_okx_get_short_protecao(okx_instance):
     okx_instance.account.get_positions.return_value = {

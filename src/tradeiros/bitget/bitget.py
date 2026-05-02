@@ -14,7 +14,7 @@ class Bitget(ExchangeBase):
         pass_phrase = passphrase or os.getenv(f'BITGET_PASSPHRASE{suffix_str}')
 
         if not key or not secret or not pass_phrase:
-            raise ValueError("As credenciais da Bitget não foram fornecidas.")
+            raise ValueError("As credenciais da Bitget nÃ£o foram fornecidas.")
 
         self.instance = ccxt.bitget({
             'apiKey': key,
@@ -27,33 +27,42 @@ class Bitget(ExchangeBase):
 
     def get_patrimonio(self):
         """
-        Calcula o patrimônio total em USD considerando apenas:
-        - Coin-Margined (Inverso) - Onde BTC é usado como colateral
+        Calcula o patrimÃ´nio total em USD considerando apenas:
+        - Coin-Margined (Inverso) - Onde BTC Ã© usado como colateral
         """
         try:
             # Busca saldo especificamente da conta Coin-M
             balance = self.instance.fetch_balance({'productType': 'COIN-FUTURES'})
             total_btc = balance.get('BTC', {}).get('total', 0.0)
-            
+
             return float(total_btc) * self.get_btc_preco()
         except Exception as e:
-            print(f"[{datetime.now().strftime('%d/%m %H:%M:%S')}] Erro ao buscar patrimônio Bitget (Coin-M): {e}")
+            print(f"[{datetime.now().strftime('%d/%m %H:%M:%S')}] Erro ao buscar patrimÃ´nio Bitget (Coin-M): {e}")
+            return 0.0
+
+    def get_margem_disponivel(self):
+        try:
+            balance = self.instance.fetch_balance({'productType': 'COIN-FUTURES'})
+            free_btc = balance.get('BTC', {}).get('free', 0.0)
+            return float(free_btc)
+        except Exception as e:
+            print(f"[{datetime.now().strftime('%d/%m %H:%M:%S')}] Erro ao buscar margem disponÃ­vel Bitget (Coin-M): {e}")
             return 0.0
 
     def get_btc_preco(self):
-        """Recupera o preço atual do Bitcoin (Inverso)"""
+        """Recupera o preÃ§o atual do Bitcoin (Inverso)"""
         symbol = 'BTC/USD:BTC'
         try:
             ticker = self.instance.fetch_ticker(symbol)
             return float(ticker['last'])
         except Exception as e:
-            raise ValueError(f"Erro ao recuperar preço da Bitget: {e}")
+            raise ValueError(f"Erro ao recuperar preÃ§o da Bitget: {e}")
 
     def get_ordens(self):
         """Busca todas as ordens abertas (Limite e Plano) para o par BTC Inverso"""
         symbol = 'BTC/USD:BTC'
         try:
-            # 1. Busca ordens Limit padrão
+            # 1. Busca ordens Limit padrÃ£o
             orders = self.instance.fetch_open_orders(symbol)
             
             # 2. Busca ordens de Plano (Trigger/Stop/Market Trigger)
@@ -68,7 +77,7 @@ class Bitget(ExchangeBase):
             
             data = []
             for o in orders:
-                # Conversão segura para booleano e float
+                # ConversÃ£o segura para booleano e float
                 p_raw = o.get('price') or o.get('stopPrice')
                 preco_ordem = float(p_raw) if p_raw and str(p_raw).strip() != '' else 0.0
                 
@@ -78,7 +87,7 @@ class Bitget(ExchangeBase):
                 # Valor nocional em USD (Notional) = amount * preco
                 usd_value = amount * (preco_ordem or self.get_btc_preco())
                 
-                # Formata a data de criação
+                # Formata a data de criaÃ§Ã£o
                 ts = o.get('timestamp')
                 dt_str = pd.to_datetime(ts, unit='ms').strftime('%d/%m %H:%M') if ts else ''
                 
@@ -100,31 +109,31 @@ class Bitget(ExchangeBase):
 
     def get_short_protecao(self):
         """
-        Retorna o valor total da posição aberta no par Inverso (BTC/USD:BTC).
+        Retorna o valor total da posiÃ§Ã£o aberta no par Inverso (BTC/USD:BTC).
         Shorts retornam valores negativos.
         """
         symbol = 'BTC/USD:BTC'
         try:
             price = self.get_btc_preco()
-            # Busca apenas posições Coin-Margined (BTC como margem)
+            # Busca apenas posiÃ§Ãµes Coin-Margined (BTC como margem)
             positions = self.instance.fetch_positions(params={'productType': 'COIN-FUTURES', 'marginCoin': 'BTC'})
             
             for pos in positions:
                 if pos['symbol'] == symbol:
                     contracts = float(pos.get('contracts', 0) or 0)
                     if contracts > 0:
-                        # Valor nocional USD = Qtd em BTC * Preço
+                        # Valor nocional USD = Qtd em BTC * PreÃ§o
                         val_usd = contracts * price
                         if pos.get('side') == 'short':
                             return -abs(val_usd)
                         return abs(val_usd)
             return 0.0
         except Exception as e:
-            print(f"[{datetime.now().strftime('%d/%m %H:%M:%S')}] Erro ao buscar posição short Bitget: {e}")
+            print(f"[{datetime.now().strftime('%d/%m %H:%M:%S')}] Erro ao buscar posiÃ§Ã£o short Bitget: {e}")
             return 0.0
 
     def consolidate(self, df, allocation, btc_price, short_thp):
-        """Consolida as ordens e posições para exibição no relatório"""
+        """Consolida as ordens e posiÃ§Ãµes para exibiÃ§Ã£o no relatÃ³rio"""
         now_str = datetime.now().strftime('%d/%m %H:%M')
         
         if df.empty:
@@ -149,14 +158,14 @@ class Bitget(ExchangeBase):
             }).reset_index(drop=True)
             
             agrupado.columns = ['par', 'tipo', 'operacao', 'preco_min', 'preco_max', 'qtd_ordens', 'qtd_sum', 'reduce', 'data_criacao']
-            # Adiciona linha de proteção (Short aberto)
+            # Adiciona linha de proteÃ§Ã£o (Short aberto)
             agrupado.loc[len(agrupado)] = ['BTC/USD:BTC', 'protected', 'sell', btc_price, btc_price , 0, float(short_thp), 'false', now_str]
         
         # Ordenar por preco_max decrescente
         agrupado = agrupado.sort_values('preco_max', ascending=False).reset_index(drop=True)
         agrupado['tipo'] = agrupado['tipo'].str.replace('conditional', 'market')
 
-        # Cálculo da porcentagem de exposição sobre o patrimônio total
+        # CÃ¡lculo da porcentagem de exposiÃ§Ã£o sobre o patrimÃ´nio total
         if allocation > 0:
             agrupado['%'] = ((agrupado['qtd_sum'].abs() * 100) / allocation).round(2)
         else:
@@ -165,7 +174,7 @@ class Bitget(ExchangeBase):
         return agrupado
 
     def atualizar(self):
-        """Ponto de entrada principal para a atualização dos dados da Bitget"""
+        """Ponto de entrada principal para a atualizaÃ§Ã£o dos dados da Bitget"""
         price = self.get_btc_preco()
         patrimonio = self.get_patrimonio()
         df_ordens = self.get_ordens()
@@ -173,3 +182,5 @@ class Bitget(ExchangeBase):
         
         df_consolidado = self.consolidate(df_ordens, patrimonio, price, short)
         return df_consolidado, patrimonio
+    def get_alavancagem(self):
+        return 2.0

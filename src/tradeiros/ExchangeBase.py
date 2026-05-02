@@ -21,7 +21,13 @@ class ExchangeBase(ABC):
         pass
 
     @abstractmethod
-    def atualizar(self):
+    def get_margem_disponivel(self):
         pass
 
+    @abstractmethod
+    def get_alavancagem(self):
+        pass
 
+    @abstractmethod
+    def atualizar(self):
+        pass

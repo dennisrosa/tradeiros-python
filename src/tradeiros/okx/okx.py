@@ -12,14 +12,14 @@ class Okx(ExchangeBase):
         # Ajusta nome das chaves com base no sufixo caso fornecido
         suffix_str = sufixo if sufixo else ''
 
-        # Tenta pegar dos parâmetros; se não passar, tenta pegar das variáveis de ambiente globais
+        # Tenta pegar dos parÃƒÂ¢metros; se nÃƒÂ£o passar, tenta pegar das variÃƒÂ¡veis de ambiente globais
         key = api_key or os.getenv(f'OKX_API_KEY{suffix_str}')
         secret = api_secret or os.getenv(f'OKX_API_SECRET{suffix_str}')
         pass_phrase = passphrase or os.getenv(f'OKX_PASSPHRASE{suffix_str}')
         flag_val = os.getenv('OKX_FLAG', flag)
 
         if not key or not secret or not pass_phrase:
-            raise ValueError("As credenciais da OKX não foram fornecidas.")
+            raise ValueError("As credenciais da OKX nÃƒÂ£o foram fornecidas.")
 
         self.account = Account.AccountAPI(
             api_key=key,
@@ -52,31 +52,39 @@ class Okx(ExchangeBase):
         return df, patrimonio
 
 
-    def get_patrimonio(self):
+    def _get_btc_balance_detail(self):
         try:
-            result = self.account.get_account_balance()
+            result = self.account.get_account_balance(ccy='BTC')
             if 'data' not in result:
                 print(f"Erro OKX (Balance): {result}")
-            eq = 0   
+                return {}
             account_data = result.get('data', [])
             if account_data:
                 for account_detail in account_data:
-                    encontrou_btc = False
                     for balance_detail in account_detail.get('details', []):
-                        ccy = balance_detail.get('ccy')
-                        
-                        # Filtra apenas para BTC
-                        if ccy == 'BTC':
-                            encontrou_btc = True
-                            cash_bal = balance_detail.get('cashBal')
-                            avail_bal = balance_detail.get('availBal')
-                            eq = balance_detail.get('eq')
-                            break  # Sai do loop após encontrar BTC
+                        if balance_detail.get('ccy') == 'BTC':
+                            return balance_detail
         except Exception as e:
             print(f"[{datetime.now().strftime('%d/%m %H:%M:%S')}] Falha na rede OKX (Balance): {e}")
-            eq = 0 
-        
+        return {}
+
+    def get_patrimonio(self):
+        detail = self._get_btc_balance_detail()
+        eq = detail.get('eq', 0)
         return float(eq) * self.get_btc_preco()
+
+    def get_margem_disponivel(self):
+        detail = self._get_btc_balance_detail()
+        avail_bal = detail.get("availBal", 0)
+        return float(avail_bal)
+
+    def get_alavancagem(self):
+        try:
+            result = self.account.get_leverage(mgnMode="cross", instId="BTC-USD-SWAP")
+            return float(result["data"][0]["lever"])
+        except Exception as e:
+            print(f"[{__import__("datetime").datetime.now().strftime("%d/%m %H:%M:%S")}] Falha ao consultar alavancagem OKX: {e}")
+            return 2.0
 
     def get_btc_preco(self):
         #Recuperar o preco atual do BTC
@@ -84,7 +92,7 @@ class Okx(ExchangeBase):
             ticker_result = self.market.get_ticker(instId='BTC-USD-SWAP')
             if not ticker_result.get('data'):
                 print(f"Erro OKX (Ticker): {ticker_result}")
-                return 1.0 # Fallback para evitar divisão por zero se usado
+                return 1.0 # Fallback para evitar divisÃƒÂ£o por zero se usado
             return float(ticker_result["data"][0].get('last', 0))
         except Exception as e:
             print(f"[{datetime.now().strftime('%d/%m %H:%M:%S')}] Falha na rede OKX (Ticker): {e}")
@@ -126,7 +134,7 @@ class Okx(ExchangeBase):
         df = df.rename(columns={'instId':'par', 'ordType':'tipo', 'px':'preco', 'reduceOnly':'reduce', 'side': 'operacao', 'sz':'qtd'})
         df['preco'] = pd.to_numeric(df['preco'], errors='coerce').fillna(0.0)
         df['qtd'] = pd.to_numeric(df['qtd'], errors='coerce').fillna(0.0)
-        # Converte timestamp para formato legível
+        # Converte timestamp para formato legÃƒÂ­vel
         df['data_criacao'] = pd.to_datetime(df['cTime'].astype(float), unit='ms').dt.strftime('%d/%m %H:%M')
         return df.sort_values('preco', ascending=False)
 
@@ -148,7 +156,7 @@ class Okx(ExchangeBase):
         df = df.rename(columns={'instId':'par', 'ordType':'tipo', 'slTriggerPx':'preco', 'reduceOnly':'reduce', 'side': 'operacao', 'sz':'qtd'})
         df['preco'] = pd.to_numeric(df['preco'], errors='coerce').fillna(0.0)
         df['qtd'] = pd.to_numeric(df['qtd'], errors='coerce').fillna(0.0)
-        # Converte timestamp para formato legível
+        # Converte timestamp para formato legÃƒÂ­vel
         df['data_criacao'] = pd.to_datetime(df['cTime'].astype(float), unit='ms').dt.strftime('%d/%m %H:%M')
         return df.sort_values('preco', ascending=False)
 
@@ -161,13 +169,13 @@ class Okx(ExchangeBase):
         else:
             df_agrupado = df.copy()
             
-            # Criar identificador de grupos baseado em mudanças sequenciais de tipo E operacao
+            # Criar identificador de grupos baseado em mudanÃƒÂ§as sequenciais de tipo E operacao
             df_agrupado['grupo_sequencial'] = ( 
                 (df_agrupado['tipo'] != df_agrupado['tipo'].shift()) | 
                 (df_agrupado['operacao'] != df_agrupado['operacao'].shift())
             ).cumsum()
             
-            # Agrupar por 'grupo_sequencial' e calcular estatísticas
+            # Agrupar por 'grupo_sequencial' e calcular estatÃƒÂ­sticas
             agrupado = df_agrupado.groupby('grupo_sequencial').agg({
                 'par': 'first',
                 'tipo': 'first',
@@ -180,7 +188,7 @@ class Okx(ExchangeBase):
             
             # Renomear colunas
             agrupado.columns = ['par', 'tipo', 'operacao', 'preco_min', 'preco_max', 'qtd_ordens', 'qtd_sum', 'reduce', 'data_criacao']
-            # Adiciona linha de proteção com data atual
+            # Adiciona linha de proteÃƒÂ§ÃƒÂ£o com data atual
             agrupado.loc[len(agrupado)] = ['BTC-USD-SWAP', 'protected', 'sell', btc_price, btc_price , 0, float(short_thp), 'false', now_str]
         
         # Ordenar por preco_max decrescente

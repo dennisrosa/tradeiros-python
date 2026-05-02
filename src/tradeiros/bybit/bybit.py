@@ -11,5 +11,9 @@ class Bybit(ExchangeBase):
         pass
     def get_short_protecao(self):
         pass
+    def get_margem_disponivel(self):
+        pass
+    def get_alavancagem(self):
+        return 2.0
     def atualizar(self):
         pass

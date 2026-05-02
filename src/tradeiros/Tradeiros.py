@@ -6,12 +6,12 @@ from dotenv import load_dotenv, find_dotenv
 
 class Tradeiros:
     def __init__(self, exchange, descricao=None, sufixo=None, **kwargs):
-        load_dotenv(find_dotenv()) 
-        
+        load_dotenv(find_dotenv())
+
         self.exchange_name = exchange
         self.descricao = descricao
         self.sufixo = sufixo
-        
+
         # Repassa o sufixo explicitamente para a exchange para formatação de variáveis de ambiente
         kwargs['sufixo'] = sufixo
 
@@ -24,12 +24,18 @@ class Tradeiros:
         else:
             raise ValueError("Exchange não suportada")
 
+    def get_margem_disponivel(self):
+        return self.exchange.get_margem_disponivel()
+
+    def get_alavancagem(self):
+        return self.exchange.get_alavancagem()
+
     def gerar_dataset_grafico(self):
         import pandas as pd
-        
+
         # Usa os dados da instância salvos após o atualizar()
         df = self._df
-        
+
         try:
             protected_row = df[df['tipo'] == 'protected']
             if not protected_row.empty:
@@ -49,32 +55,34 @@ class Tradeiros:
             'Percentual': [f"{(v/sum(valores)*100):.1f}" if sum(valores) > 0 else "0.0" for v in valores]
         })
 
-        df_exposicao['Cor'] = ['#ff9999', '#66b3ff']  
-        df_exposicao['Explode'] = [0.05, 0]  
+        df_exposicao['Cor'] = ['#ff9999', '#66b3ff']
+        df_exposicao['Explode'] = [0.05, 0]
 
-        # Filtra tipos e agrupa
-        df_margem = df.groupby('tipo').agg(
+        # Filtra tipos e agrupa (exclui 'protected' pois o short já está no gráfico de exposição)
+        df_margem = df[df['tipo'] != 'protected'].groupby('tipo').agg(
             Valor=('qtd_sum', 'sum')
         ).abs().reset_index()
 
-        # Adiciona linha de margem remanescente
-        patrimonio_total_alocacao = self.patrimonio() * 2 # Exemplo baseado na lógica anterior
-        margem_restante = patrimonio_total_alocacao - df_margem['Valor'].sum()
-        
+        # Em cross-margin COIN-M, o poder de compra total = patrimônio * alavancagem
+        # As posições consomem poder de compra pelo valor nocional
+        alavancagem = self.get_alavancagem()
+        poder_compra_usd = self.patrimonio() * alavancagem
+        margem_restante = poder_compra_usd - df_margem['Valor'].sum()
+
         df_margem.loc[len(df_margem)] = ['margem', max(0, margem_restante)]
         df_margem['Percentual'] = (df_margem['Valor'] * 100 / df_margem['Valor'].sum()).round(1)
-        
-        # Ajusta cores baseado no número de categorias encontradas
+
+        #Ajusta cores baseado no número de categorias encontradas
         cores_base = ['#ff9999', '#66b3ff', '#ffcc99', '#99ff99', '#c2c2f0', '#ffb3e6']
         df_margem['Cor'] = [cores_base[i % len(cores_base)] for i in range(len(df_margem))]
         df_margem['Explode'] = [0.02] * len(df_margem)
-        
+
         df_margem = df_margem.rename(columns={'tipo': 'Categoria'})
         df_margem['Categoria'] = df_margem['Categoria'].replace({
-            'limit': 'Limite',
-            'market': 'Mercado', 
+            'limit': 'Limit',
+            'market': 'Market',
             'protected': 'Protegido',
-            'margem': 'Margem'
+            'margem': 'Disponível'
         })
 
         return df_exposicao, df_margem
@@ -90,14 +98,14 @@ class Tradeiros:
 
         # ===== GRÁFICO 1: Exposição =====
         if df_exposicao['Valor'].sum() > 0:
-            ax1.pie(df_exposicao['Valor'], 
-                    labels=df_exposicao['Categoria'],
-                    colors=df_exposicao['Cor'],
-                    autopct='%1.1f%%',
-                    startangle=90,
-                    explode=df_exposicao['Explode'],
-                    shadow=True,
-                    textprops={'fontsize': 10}) # Fonte reduzida
+            ax1.pie(df_exposicao['Valor'],
+                labels=df_exposicao['Categoria'],
+                colors=df_exposicao['Cor'],
+                autopct='%1.1f%%',
+                startangle=90,
+                explode=df_exposicao['Explode'],
+                shadow=True,
+                textprops={'fontsize': 10}) # Fonte reduzida
         else:
             ax1.text(0.5, 0.5, 'Sem Dados', ha='center', va='center', color='gray')
 
@@ -106,23 +114,27 @@ class Tradeiros:
 
         # ===== GRÁFICO 2: Margem =====
         if df_margem['Valor'].sum() > 0:
+            valores_margem = df_margem['Valor'].tolist()
+            def margem_autopct(pct):
+                total = sum(valores_margem)
+                val = pct * total / 100.0
+                return f'{pct:.1f}%\n(${val:,.2f})'
             ax2.pie(df_margem['Valor'],
-                    labels=df_margem['Categoria'],
-                    colors=df_margem['Cor'],
-                    autopct='%1.1f%%',
-                    startangle=90,
-                    explode=df_margem['Explode'],
-                    shadow=True,
-                    textprops={'fontsize': 10}) # Fonte reduzida
+                labels=df_margem['Categoria'],
+                colors=df_margem['Cor'],
+                autopct=margem_autopct,
+                startangle=90,
+                explode=df_margem['Explode'],
+                shadow=True,
+                textprops={'fontsize': 10})
         else:
             ax2.text(0.5, 0.5, 'Sem Dados', ha='center', va='center', color='gray')
-
 
         ax2.set_title('Margem', fontsize=12, fontweight='bold')
         ax2.axis('equal')
 
         fig.tight_layout()
-        
+
         return fig
 
 
@@ -134,6 +146,6 @@ class Tradeiros:
 
     def patrimonio(self):
         return self._patrimonio
-        
+
     def dados(self):
         return self._df

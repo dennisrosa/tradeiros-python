@@ -50,9 +50,25 @@ def test_bitget_get_patrimonio(bitget_instance):
     # Mock get_btc_preco
     with patch.object(Bitget, 'get_btc_preco', return_value=60000.0):
         patrimonio = bitget_instance.get_patrimonio()
-    
+
     bitget_instance.instance.fetch_balance.assert_called_with({'productType': 'COIN-FUTURES'})
     assert patrimonio == 6000.0 # 0.1 * 60000
+
+def test_bitget_get_margem_disponivel(bitget_instance):
+    bitget_instance.instance.fetch_balance.return_value = {
+        'BTC': {'total': 0.1, 'free': 0.05}
+    }
+
+    margem = bitget_instance.get_margem_disponivel()
+
+    bitget_instance.instance.fetch_balance.assert_called_with({'productType': 'COIN-FUTURES'})
+    assert margem == 0.05
+
+def test_bitget_get_margem_disponivel_error(bitget_instance):
+    bitget_instance.instance.fetch_balance.side_effect = Exception("API error")
+
+    margem = bitget_instance.get_margem_disponivel()
+    assert margem == 0.0
 
 def test_bitget_get_ordens(bitget_instance):
     # Mock fetch_open_orders side effect for Limit and Plan orders
