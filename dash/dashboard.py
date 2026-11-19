@@ -67,13 +67,17 @@ def process_wallet(tradeiros_instance):
         tipo = str(row['tipo']).upper()
         qtd = row['qtd_ordens']
         reduce = str(row['reduce']).lower() == 'true' if isinstance(row['reduce'], str) else bool(row['reduce'])
+        close = str(row.get('close', 'false')).lower() == 'true'
 
         if qtd > 1:
             ret = f"{operacao} SCALE-{int(qtd)} {tipo}"
         elif qtd == 0:
             ret = "LONG" if operacao == "BUY" else "SHORT"
         elif qtd == 1:
-            ret = f"{operacao} STOP {tipo}"
+            if close:
+                ret = f"{operacao} STOP CLOSE {tipo}"
+            else:
+                ret = f"{operacao} STOP {tipo}"
         else:
             return None
 
@@ -92,6 +96,7 @@ def process_wallet(tradeiros_instance):
 
     df['raw_operacao'] = df['operacao']
     df['raw_tipo'] = df['tipo']
+    df['raw_close'] = df['close'].astype(str) if 'close' in df.columns else 'false'
 
     df['range'] = df.apply(formatar_range, axis=1)
     df['operacao'] = df.apply(formatar_texto, axis=1)

@@ -169,18 +169,22 @@ class Okx(ExchangeBase):
             orders = self.trade.get_order_list()
             if 'data' not in orders:
                 print(f"Erro OKX (Limit Orders): {orders}")
-                return pd.DataFrame(columns=['par', 'tipo', 'preco', 'reduce', 'operacao', 'qtd', 'data_criacao', 'posSide'])
+                return pd.DataFrame(columns=['par', 'tipo', 'preco', 'reduce', 'operacao', 'qtd', 'data_criacao', 'posSide', 'close'])
             df = pd.DataFrame(orders['data'])
         except Exception as e:
             print(f"[{datetime.now().strftime('%d/%m %H:%M:%S')}] Falha na rede OKX (Limit Orders): {e}")
-            return pd.DataFrame(columns=['par', 'tipo', 'preco', 'reduce', 'operacao', 'qtd', 'data_criacao', 'posSide'])
+            return pd.DataFrame(columns=['par', 'tipo', 'preco', 'reduce', 'operacao', 'qtd', 'data_criacao', 'posSide', 'close'])
 
         if df.empty:
-            return pd.DataFrame(columns=['par', 'tipo', 'preco', 'reduce', 'operacao', 'qtd', 'data_criacao', 'posSide'])
+            return pd.DataFrame(columns=['par', 'tipo', 'preco', 'reduce', 'operacao', 'qtd', 'data_criacao', 'posSide', 'close'])
 
         if 'posSide' not in df.columns:
             df['posSide'] = 'net'
-        df = df[['instId', 'ordType', 'px', 'reduceOnly', 'side', 'sz', 'cTime', 'posSide']]
+        if 'closeFraction' not in df.columns:
+            df['closeFraction'] = ''
+        df['close'] = df['closeFraction'].apply(lambda v: 'true' if str(v).strip() not in ('', '0', 'None') else 'false')
+        df['close_fraction'] = pd.to_numeric(df['closeFraction'], errors='coerce').fillna(0.0)
+        df = df[['instId', 'ordType', 'px', 'reduceOnly', 'side', 'sz', 'cTime', 'posSide', 'close', 'close_fraction']]
         df = df.rename(columns={'instId':'par', 'ordType':'tipo', 'px':'preco', 'reduceOnly':'reduce', 'side': 'operacao', 'sz':'qtd'})
         df['preco'] = pd.to_numeric(df['preco'], errors='coerce').fillna(0.0)
         df['qtd'] = pd.to_numeric(df['qtd'], errors='coerce').fillna(0.0)
@@ -193,18 +197,22 @@ class Okx(ExchangeBase):
             result = self.trade.order_algos_list(ordType ='limit')
             if 'data' not in result:
                 print(f"Erro OKX (Market/Algo Orders): {result}")
-                return pd.DataFrame(columns=['par', 'tipo', 'preco', 'reduce', 'operacao', 'qtd', 'data_criacao', 'posSide'])
+                return pd.DataFrame(columns=['par', 'tipo', 'preco', 'reduce', 'operacao', 'qtd', 'data_criacao', 'posSide', 'close'])
             df = pd.DataFrame(result['data'])
         except Exception as e:
             print(f"[{datetime.now().strftime('%d/%m %H:%M:%S')}] Falha na rede OKX (Market/Algo Orders): {e}")
-            return pd.DataFrame(columns=['par', 'tipo', 'preco', 'reduce', 'operacao', 'qtd', 'data_criacao', 'posSide'])
+            return pd.DataFrame(columns=['par', 'tipo', 'preco', 'reduce', 'operacao', 'qtd', 'data_criacao', 'posSide', 'close'])
 
         if df.empty:
-            return pd.DataFrame(columns=['par', 'tipo', 'preco', 'reduce', 'operacao', 'qtd', 'data_criacao', 'posSide'])
+            return pd.DataFrame(columns=['par', 'tipo', 'preco', 'reduce', 'operacao', 'qtd', 'data_criacao', 'posSide', 'close'])
 
         if 'posSide' not in df.columns:
             df['posSide'] = 'net'
-        df = df[['instId', 'ordType', 'slTriggerPx','reduceOnly', 'side', 'sz', 'cTime', 'posSide']]
+        if 'closeFraction' not in df.columns:
+            df['closeFraction'] = ''
+        df['close'] = df['closeFraction'].apply(lambda v: 'true' if str(v).strip() not in ('', '0', 'None') else 'false')
+        df['close_fraction'] = pd.to_numeric(df['closeFraction'], errors='coerce').fillna(0.0)
+        df = df[['instId', 'ordType', 'slTriggerPx','reduceOnly', 'side', 'sz', 'cTime', 'posSide', 'close', 'close_fraction']]
         df = df.rename(columns={'instId':'par', 'ordType':'tipo', 'slTriggerPx':'preco', 'reduceOnly':'reduce', 'side': 'operacao', 'sz':'qtd'})
         df['preco'] = pd.to_numeric(df['preco'], errors='coerce').fillna(0.0)
         df['qtd'] = pd.to_numeric(df['qtd'], errors='coerce').fillna(0.0)
@@ -215,20 +223,45 @@ class Okx(ExchangeBase):
     def consolidate(self, df, allocation, btc_price, short_thp=None, posicoes=None):
         now_str = datetime.now().strftime('%d/%m %H:%M')
 
-        colunas = ['par', 'tipo', 'operacao', 'preco_min', 'preco_max', 'qtd_ordens', 'qtd_sum', 'reduce', 'data_criacao']
+        colunas = ['par', 'tipo', 'operacao', 'preco_min', 'preco_max', 'qtd_ordens', 'qtd_sum', 'reduce', 'close', 'data_criacao']
 
         if df is not None and not df.empty:
-            df_agrupado = df.copy()
+            df_agrupado = df.copy().reset_index(drop=True)
             if 'posSide' not in df_agrupado.columns:
                 df_agrupado['posSide'] = 'net'
             if 'reduce' not in df_agrupado.columns:
                 df_agrupado['reduce'] = 'false'
             df_agrupado['reduce'] = df_agrupado['reduce'].astype(str)
+            if 'close' not in df_agrupado.columns:
+                df_agrupado['close'] = 'false'
+            df_agrupado['close'] = df_agrupado['close'].astype(str)
+
+            # Ordens 'close' (closeFraction) não trazem tamanho em 'sz'.
+            # Preenche com o tamanho atual da posição que será fechada (por lado),
+            # multiplicado pela fração informada em closeFraction.
+            if 'close_fraction' not in df_agrupado.columns:
+                df_agrupado['close_fraction'] = 0.0
+            df_agrupado['close_fraction'] = pd.to_numeric(df_agrupado['close_fraction'], errors='coerce').fillna(0.0)
+            df_agrupado['qtd'] = pd.to_numeric(df_agrupado['qtd'], errors='coerce').fillna(0.0)
+
+            if posicoes is not None and not posicoes.empty:
+                pos_map = {}
+                for _, p in posicoes.iterrows():
+                    lado = 'long' if (str(p.get('tipo')) == 'long' or p.get('operacao') == 'buy') else 'short'
+                    pos_map[lado] = abs(float(p['qtd']))
+
+                mask_close = (df_agrupado['close'] == 'true') & (df_agrupado['qtd'] == 0)
+                for idx in df_agrupado[mask_close].index:
+                    lado = df_agrupado.at[idx, 'posSide']
+                    frac = df_agrupado.at[idx, 'close_fraction'] or 1.0
+                    if lado in pos_map:
+                        df_agrupado.at[idx, 'qtd'] = pos_map[lado] * float(frac)
+
             df_agrupado = df_agrupado.sort_values('preco', ascending=True).reset_index(drop=True)
 
             # Separa blocos de preço: dentro de cada combinação (tipo/operação/reduce/posSide),
             # abre um novo bloco quando o salto entre ordens consecutivas passar de 1% do preço médio.
-            chaves = ['tipo', 'operacao', 'reduce', 'posSide']
+            chaves = ['tipo', 'operacao', 'reduce', 'posSide', 'close']
             df_agrupado['bloco'] = 0
             for _, sub in df_agrupado.groupby(chaves, dropna=False):
                 sub = sub.sort_values('preco')
@@ -240,7 +273,7 @@ class Okx(ExchangeBase):
 
             # Agrupa por valor + bloco para separar ordens normais/reduce, long/short e blocos de preço.
             agrupado = df_agrupado.groupby(
-                ['tipo', 'operacao', 'reduce', 'posSide', 'bloco'], dropna=False
+                ['tipo', 'operacao', 'reduce', 'posSide', 'close', 'bloco'], dropna=False
             ).agg(
                 par=('par', 'first'),
                 preco_min=('preco', 'min'),
@@ -262,11 +295,11 @@ class Okx(ExchangeBase):
                     tipo_pos = 'long' if p['operacao'] == 'buy' else 'short'
                 agrupado.loc[len(agrupado)] = [
                     p['par'], tipo_pos, p['operacao'], p['preco'], p['preco'],
-                    0, float(p['qtd']), p.get('reduce', 'false'), p['data_criacao']
+                    0, float(p['qtd']), p.get('reduce', 'false'), 'false', p['data_criacao']
                 ]
         elif short_thp is not None:
             # Compatibilidade: apenas short informado (net mode)
-            agrupado.loc[len(agrupado)] = ['BTC-USD-SWAP', 'short', 'sell', btc_price, btc_price, 0, float(short_thp), 'false', now_str]
+            agrupado.loc[len(agrupado)] = ['BTC-USD-SWAP', 'short', 'sell', btc_price, btc_price, 0, float(short_thp), 'false', 'false', now_str]
 
         # Ordenar por preco_max decrescente
         agrupado = agrupado.sort_values('preco_max', ascending=False).reset_index(drop=True)

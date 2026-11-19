@@ -269,6 +269,26 @@ def test_consolidate_com_posicoes(okx_instance):
     short_row = protected[protected['tipo'] == 'short'].iloc[0]
     assert long_row['qtd_sum'] == pytest.approx(980.0)
     assert short_row['qtd_sum'] == pytest.approx(-1470.0)
+
+def test_consolidate_close_preenche_valor_da_posicao(okx_instance):
+    posicoes = pd.DataFrame([
+        {'par': 'BTC-USD-SWAP', 'tipo': 'long', 'operacao': 'buy', 'preco': 65000.0, 'qtd': 13.8, 'reduce': 'false', 'data_criacao': '15/11 03:47'},
+        {'par': 'BTC-USD-SWAP', 'tipo': 'short', 'operacao': 'sell', 'preco': 65400.0, 'qtd': -11.9, 'reduce': 'false', 'data_criacao': '15/11 03:47'},
+    ])
+    # Ordem close do LONG (sell) e close do SHORT (buy), ambas via closeFraction
+    df = pd.DataFrame([
+        {'par': 'BTC', 'tipo': 'conditional', 'operacao': 'sell', 'preco': 59559.0, 'qtd': 0.0,
+         'reduce': 'true', 'posSide': 'long', 'close': 'true', 'close_fraction': 1.0, 'data_criacao': '15/11 03:47'},
+        {'par': 'BTC', 'tipo': 'conditional', 'operacao': 'buy', 'preco': 70000.0, 'qtd': 0.0,
+         'reduce': 'true', 'posSide': 'short', 'close': 'true', 'close_fraction': 1.0, 'data_criacao': '15/11 03:47'},
+    ])
+
+    result = okx_instance.consolidate(df, 100000.0, 65000.0, posicoes=posicoes)
+
+    close_long = result[(result['close'] == 'true') & (result['operacao'] == 'sell')].iloc[0]
+    close_short = result[(result['close'] == 'true') & (result['operacao'] == 'buy')].iloc[0]
+    assert close_long['qtd_sum'] == pytest.approx(1380.0)   # 13.8 contratos * 100
+    assert close_short['qtd_sum'] == pytest.approx(1190.0)  # 11.9 contratos * 100
     
 def test_atualizar(okx_instance):
     with patch.object(Okx, 'get_ordens') as mock_orders, \
