@@ -36,18 +36,14 @@ class Tradeiros:
         # Usa os dados da instância salvos após o atualizar()
         df = self._df
 
-        try:
-            protected_row = df[df['tipo'] == 'protected']
-            if not protected_row.empty:
-                protegido = float(abs(protected_row['qtd_sum'].iloc[0]))
-            else:
-                protegido = 0.0
-        except (IndexError, KeyError):
-            protegido = 0.0
+        # Posições abertas: long e short listados separadamente
+        positions = df[df['tipo'].isin(['long', 'short', 'protected'])]
+        long_val = float(positions.loc[positions['operacao'] == 'buy', 'qtd_sum'].abs().sum()) if not positions.empty else 0.0
+        short_val = float(positions.loc[positions['operacao'] == 'sell', 'qtd_sum'].abs().sum()) if not positions.empty else 0.0
 
-        exp_restante = max(0, self.patrimonio() - protegido)
-        valores = [protegido, exp_restante]
-        rotulos = ['Protegido', 'Exposto']
+        exp_restante = max(0, self.patrimonio() - long_val - short_val)
+        valores = [long_val, short_val, exp_restante]
+        rotulos = ['Long', 'Short', 'Exposto']
 
         df_exposicao = pd.DataFrame({
             'Categoria': rotulos,
@@ -55,11 +51,11 @@ class Tradeiros:
             'Percentual': [f"{(v/sum(valores)*100):.1f}" if sum(valores) > 0 else "0.0" for v in valores]
         })
 
-        df_exposicao['Cor'] = ['#ff9999', '#66b3ff']
-        df_exposicao['Explode'] = [0.05, 0]
+        df_exposicao['Cor'] = ['#66b3ff', '#ff9999', '#99ff99']
+        df_exposicao['Explode'] = [0.05, 0.05, 0]
 
-        # Filtra tipos e agrupa (exclui 'protected' pois o short já está no gráfico de exposição)
-        df_margem = df[df['tipo'] != 'protected'].groupby('tipo').agg(
+        # Filtra tipos e agrupa (exclui posições long/short do gráfico de margem)
+        df_margem = df[~df['tipo'].isin(['long', 'short', 'protected'])].groupby('tipo').agg(
             Valor=('qtd_sum', 'sum')
         ).abs().reset_index()
 

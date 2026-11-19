@@ -71,7 +71,7 @@ def process_wallet(tradeiros_instance):
         if qtd > 1:
             ret = f"{operacao} SCALE-{int(qtd)} {tipo}"
         elif qtd == 0:
-            ret = "SHORT"
+            ret = "LONG" if operacao == "BUY" else "SHORT"
         elif qtd == 1:
             ret = f"{operacao} STOP {tipo}"
         else:
